@@ -3,9 +3,9 @@ from heapq import merge
 import numpy as np
 import pandas as pd
 import datetime as dt
+import seaborn as sns
 import pandas_datareader as dr
 import yfinance as yf
-import finplot as fplt
 import matplotlib.pyplot as plt
 
 
@@ -23,51 +23,74 @@ tickers = {
     "Coffee Sep 25": "KCU25.NYB"# Coffee futures
 }
 
-# Create an empty list to hold each DataFrame
-data_frames = []
+# Create an empty DataFrame to hold all the futures data
+all_futures_data = pd.DataFrame()
 
-# Loop over tickers, download the data, and add each to the list
+# Download data and fill the DataFrame
 for commodity, ticker in tickers.items():
-    # Download data
     data = yf.download(ticker, start, end)
-    # Keep only Adjusted Close and Volume, and rename columns
-    data = data[['Adj Close', 'Volume']].rename(columns={'Adj Close': 'Adjusted Price', 'Volume': 'Volume'})
-    # Add a column to identify the commodity type
-    data['Commodity'] = commodity
-    # Reset index to make Date a column
+    data = data[['Adj Close', 'Volume']].rename(
+        columns={'Adj Close': f'{commodity} Adjusted Price', 'Volume': f'{commodity} Volume'})
     data.reset_index(inplace=True)
-    # Append to list
-    data_frames.append(data)
+    if all_futures_data.empty:
+        all_futures_data = data
+    else:
+        all_futures_data = pd.merge(all_futures_data, data, on="Date", how="outer")
 
-# Concatenate all data into one table
-all_futures_data = pd.concat(data_frames, axis=1)
+# Interpolate missing values linearly
 all_futures_data.interpolate("linear", inplace=True)
+
 # Display the combined table
 print("Combined Futures Data:")
 print(all_futures_data.head())
 
+# Plotting the data using matplotlib
+plt.figure(figsize=(12, 8))
 
-# Plotting setup
-plt.figure(figsize=(10, 6))  # Set the figure size
+# Define colors using a colormap
+colors = plt.cm.get_cmap('tab10', len(tickers))
 
-# Plot each column against the Date index
-plt.plot(all_futures_data.index, all_futures_data['Coffee Mar 25'], marker='o', label='Coffee Mar 25')
-plt.plot(all_futures_data.index, all_futures_data['Coffee May 25'], marker='o', label='Coffee May 25')
-plt.plot(all_futures_data.index, all_futures_data['Coffee Jul 25'], marker='o', label='Coffee Jul 25')
-plt.plot(all_futures_data.index, all_futures_data['Coffee Sep 25'], marker='o', label='Coffee Sep 25')
+# Plot each commodity's volume data
+for idx, commodity in enumerate(tickers.keys()):
+    plt.plot(all_futures_data['Date'], all_futures_data[f'{commodity} Volume'], marker='o', linestyle='-',
+             color=colors(idx), label=commodity)
 
-# Adding title and labels
-plt.title('Trading Volumes for Futures over Time')
-plt.xlabel('Date')
-plt.ylabel('Trading Volume')
-plt.xticks(rotation=45)  # Rotate date labels for better readability
+# Formatting the plot
+plt.title('Coffee Arabica NYMEX Futures Volumes in Q1/Q2 2024', fontsize=16)
+plt.xlabel('Date', fontsize=14)
+plt.ylabel('Daily Volume', fontsize=14)
+plt.xticks(rotation=45, fontsize=12)
+plt.yticks(fontsize=12)
+plt.grid(True, linestyle='--', linewidth=0.7)
+plt.legend(title="Commodity", fontsize=12, title_fontsize='13')
 
-# Adding a legend
-plt.legend(title='Futures Types')
+# Make the plot tighter and show it
+plt.tight_layout()
+# plt.show()
 
-# Displaying the grid
-plt.grid(True)
+# Plot each commodity's volume data
+for idx, commodity in enumerate(tickers.keys()):
+    plt.plot(all_futures_data['Date'], all_futures_data[f'{commodity} Adjusted Price'], marker='o', linestyle='-',
+             color=colors(idx), label=commodity)
+
+# Formatting the plot
+plt.title('Coffee Arabica NYMEX Futures EOD Adj Prices in Q1/Q2 2024', fontsize=16)
+plt.xlabel('Date', fontsize=14)
+plt.ylabel('EOD Price', fontsize=14)
+plt.xticks(rotation=45, fontsize=12)
+plt.yticks(fontsize=12)
+plt.grid(True, linestyle='--', linewidth=0.7)
+plt.legend(title="Commodity", fontsize=12, title_fontsize='13')
+
+# Make the plot tighter
+plt.tight_layout()
 
 # Show the plot
-plt.tight_layout()  # Adjust layout to make room for rotated x-axis labels
-plt.show()
+# plt.show()
+
+countries = ['Brazil', 'Vietnam', 'Ethiopia', 'Uganda']
+coffee_df = pd.read_csv("~/PycharmProjects/CommodityCoffeeAnalysis/data_analysis/sources/psd_coffee.csv")
+filtered_coffee_df = coffee_df[coffee_df['Country'].isin(countries)]
+
+# Display the filtered DataFrame
+print(filtered_coffee_df)
